@@ -1,20 +1,22 @@
 import os
 import re
 from InquirerPy import inquirer
+from core.encryption import encrypt_data, decrypt_data
+
 
 def mkvlt(name): # create vault
-    path = f"data/vaults/{name}.txt"
+    path = f"data/vaults/{name}.dat"
 
     if os.path.exists(path):
         print(f"Vault '{name}' already exists.")
     else:
         os.makedirs("data/vaults", exist_ok=True)
-        with open(path, "w") as f:
-            f.write("")
+        with open(path, "wb") as f:
+            f.write(encrypt_data(""))
         print(f"Vault '{name}' created successfully.")
 
 def ntrvlt(name): # enter account in vault
-    path = os.path.join("data/vaults", f"{name}.txt")
+    path = os.path.join("data/vaults", f"{name}.dat")
     if not os.path.exists(path):
         print(f"Vault '{name}' not found. Use 'mkvlt' to create it first.")
         return
@@ -33,40 +35,67 @@ def ntrvlt(name): # enter account in vault
     )
 
     # Append with proper separator
-    with open(path, "a") as f:
-        if os.path.getsize(path) > 0:
-            f.write("-----\n")
-        f.write(entry.strip() + "\n")
+    with open(path, "rb") as f:
+        try:
+            content = decrypt_data(f.read()).strip()
+        except Exception:
+            content = ""
+    
+    if content:
+        content += "\n-----\n" + entry.strip()
+    else:
+        content = entry.strip()
+
+    with open(path, "wb") as f:
+        f.write(encrypt_data(content))
 
     print(f"✅ Account '{account_name}' added to vault '{name}' successfully.")
 
-def rdvlt(name): # read / show contents of vault
-    path = os.path.join("data/vaults", f"{name}.txt")
+def rdvlt(name):  # read / show contents of vault
+    path = os.path.join("data/vaults", f"{name}.dat")
 
     if not os.path.exists(path):
         print(f"Vault '{name}' not found.")
         return
 
-    print(f"\nVault: '{name}'\n")
-    with open(path, "r") as f:
-        content = f.read().strip()
+    with open(path, "rb") as f:
+        encrypted_content = f.read()
+
+    try:
+        content = decrypt_data(encrypted_content).strip()
+    except Exception as e:
+        print(f"❌ Error decrypting vault content: {e}")
+        return
 
     if not content:
         print("No accounts found.\n")
         return
 
-    print(content)
-    print()
+    entries = re.split(r"(?:^-{5,}\s*$)", content, flags=re.MULTILINE)
+    entries = [e.strip() for e in entries if e.strip()]
+
+    print(f"\n📂 Vault: '{name}'")
+    print("───────────────────────────────\n")
+
+    for i, entry in enumerate(entries, 1):
+        print(f"🔐 Account #{i}")
+        print("--------------------")
+        print(entry.strip())
+        print() 
 
 def edtvlt(name): # edit account in vault
-    path = os.path.join("data/vaults", f"{name}.txt")
+    path = os.path.join("data/vaults", f"{name}.dat")
 
     if not os.path.exists(path):
         print(f"Vault '{name}' not found.")
         return
 
-    with open(path, "r") as f:
-        content = f.read().strip()
+    with open(path, "rb") as f:
+        try:
+            content = decrypt_data(f.read()).strip()
+        except Exception:
+            print("Error decrypting vault content.")
+            return
 
     entries = re.split(r"(?:^-{5,}\s*$)", content, flags=re.MULTILINE)
     entries = [e.strip() for e in entries if e.strip()]
@@ -120,20 +149,26 @@ def edtvlt(name): # edit account in vault
     entries[index] = updated_entry.strip()
     new_content = "\n-----\n".join(entries).strip() + "\n"
 
-    with open(path, "w") as f:
-        f.write(new_content)
+    with open(path, "wb") as f:
+        f.write(encrypt_data(new_content))
 
     print(f"\n✅ Account '{new_account}' updated successfully in vault '{name}'.")
 
 def rmacc(name): # remove account in vault
-    path = os.path.join("data/vaults", f"{name}.txt")
+    path = os.path.join("data/vaults", f"{name}.dat")
 
     if not os.path.exists(path):
         print(f"Vault '{name}' not found.")
         return
 
-    with open(path, "r") as f:
-        content = f.read().strip()
+    with open(path, "rb") as f:
+        encrypted_content = f.read()
+
+    try:
+        content = decrypt_data(encrypted_content).strip()
+    except Exception:
+        print("Error decrypting vault content.")
+        return
 
     entries = re.split(r"(?:^-{5,}\s*$)", content, flags=re.MULTILINE)
     entries = [e.strip() for e in entries if e.strip()]
@@ -167,8 +202,8 @@ def rmacc(name): # remove account in vault
     if confirm:
         entries.pop(index)
         updated_content = "\n-----\n".join(entries).strip() + "\n"
-        with open(path, "w") as f:
-            f.write(updated_content)
+        with open(path, "wb") as f:
+            f.write(encrypt_data(updated_content))
         print(f"✅ Account '{selected_account}' deleted successfully.")
     else:
         print("❌ Action canceled.")
