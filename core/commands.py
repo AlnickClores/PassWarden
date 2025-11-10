@@ -217,13 +217,43 @@ def lsvlt(): # read / show created vaults
     for vault in vaults:
         print(" -", vault)
 
-def rmvlt(name): # remove vault
-    path = f"data/vaults/{name}.txt"
-    if os.path.exists(path):
-        os.remove(path)
-        print(f"Vault '{name}' removed successfully.")
+def rmvlt():  # remove vault
+    vault_dir = "data/vaults"
+
+    if not os.path.exists(vault_dir):
+        print("No vaults found.")
+        return
+
+    vaults = [v for v in os.listdir(vault_dir) if v.endswith(".dat")]
+    if not vaults:
+        print("No vaults found.")
+        return
+
+    vaults.append("Cancel")
+    selected_vault = inquirer.select(
+        message="Select a vault to delete:",
+        choices=vaults,
+        pointer=">",
+    ).execute()
+
+    if selected_vault == "Cancel":
+        print("Action canceled.")
+        return
+
+    confirm = inquirer.confirm(
+        message=f"Are you sure you want to delete '{selected_vault}'?",
+        default=False,
+    ).execute()
+
+    if confirm:
+        path = os.path.join(vault_dir, selected_vault)
+        try:
+            os.remove(path)
+            print(f"Vault '{selected_vault}' deleted successfully.")
+        except Exception as e:
+            print(f"Error deleting vault: {e}")
     else:
-        print(f"Vault '{name}' does not exist.")
+        print("Action canceled.")
 
 def command_loop():
     while True:
@@ -251,8 +281,8 @@ def command_loop():
             edtvlt(cmd[1])
         elif cmd[0] == "lsvlt":
             lsvlt()
-        elif cmd[0] == "rmvlt" and len(cmd) == 2:
-            rmvlt(cmd[1])
+        elif cmd[0] == "rmvlt":
+            rmvlt()
         elif cmd[0] == "rmacc" and len(cmd) == 2:
             rmacc(cmd[1])
         elif cmd[0] == "exit":
